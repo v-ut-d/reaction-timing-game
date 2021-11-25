@@ -133,22 +133,21 @@ client.on('interactionCreate', async interaction => {
     ]).catch(() => false);
     const participants = await message?.reactions.cache.get(joinEmoji)?.users.fetch();
     if (
-      !res ||
-      (res !== true && res instanceof MessageComponentInteraction &&
-        res.customId === "cancel") ||
-      !participants ||
-      participants.size <= 1
-    ) {
-      interaction.deleteReply().catch(() => false);
-      !message?.deleted && message?.delete();
-      return;
+      res &&
+      !(res !== true && res instanceof MessageComponentInteraction &&
+        res.customId === "cancel") &&
+      participants &&
+      participants.size >= 2) {
+      const participantIds = participants.map(p => p.id).filter(id => id !== client.user?.id);
+      await game((await createResult).id, interaction.channel, participantIds);
     }
-    const participantIds = participants.map(p => p.id).filter(id => id !== client.user?.id);
+    interaction.deleteReply().catch(() => false);
+    !message?.deleted && message?.delete();
 
-
-    await game((await createResult).id, interaction.channel, participantIds);
-
-
+  } else if (interaction.commandName === "points") {
+    const user = interaction.options.getUser("ユーザー", true);
+    const date = interaction.options.getString("日付", true);
+    
   }
 });
 
