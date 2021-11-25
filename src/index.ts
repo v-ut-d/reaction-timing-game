@@ -1,5 +1,4 @@
-import { Channel } from "diagnostics_channel";
-import { Client, Intents, MessageActionRow, MessageButton, MessageComponentInteraction, Message, PartialMessage, PartialMessageReaction, PartialUser, TextBasedChannels, TextChannel, User } from "discord.js";
+import { Client, Intents, MessageActionRow, MessageButton, MessageComponentInteraction, Message, PartialMessage, PartialMessageReaction, PartialUser, TextBasedChannels, TextChannel, User, Guild } from "discord.js";
 
 const client = new Client({
   intents: [
@@ -12,6 +11,9 @@ const client = new Client({
 
 import { config as dotenvconfig } from 'dotenv';
 dotenvconfig();
+
+import { parse, format, addDays } from "date-fns";
+import ja from 'date-fns/locale/ja'
 
 const joinEmoji = "912979606238294016";
 const reactEmoji = "🔴";
@@ -147,7 +149,122 @@ client.on('interactionCreate', async interaction => {
   } else if (interaction.commandName === "points") {
     const user = interaction.options.getUser("ユーザー", true);
     const date = interaction.options.getString("日付", true);
-    
+    let day = new Date();
+    try {
+      day = parse(date, "y/M/d", new Date(), { locale: ja });
+    } catch {
+      interaction.reply({
+        content: "日付の形式が違います。2022/01/01ではなく、2022/1/1のような形式になっていますか？",
+        ephemeral: true
+      });
+      return;
+    }
+    await interaction.deferReply();
+    const res = await prisma.point.findMany({
+      where: {
+        userId: user.id,
+        game: {
+          finishedAt: {
+            gte: day,
+            lte: addDays(day, 1)
+          },
+          guild: {
+            id: interaction.guildId
+          }
+        }
+      },
+      orderBy: {
+        game: {
+          finishedAt: "asc"
+        }
+      },
+      select: {
+        point: true,
+        game: {
+          select: {
+            finishedAt: true,
+            createdAt: true
+          }
+        }
+      }
+    });
+    const nickname = getNickName(interaction.guild, user.id) ?? user.username;
+    interaction.editReply(
+      `${nickname} ${format(day, "y/M/d")}\n` +
+      res.map(record => {
+        const timeStr = record.game.finishedAt
+          ? format(record.game.finishedAt, " HH:mm:ss ", { locale: ja })
+          : format(record.game.createdAt, "(HH:mm:ss)", { locale: ja });
+        return `${timeStr} ${record.point}`
+      }).join("\n")
+    );
+  } else if (interaction.commandName = "ranking") {
+    const rank = interaction.options.getInteger("順位", false) ?? 1;
+    const user = interaction.options.getUser("ユーザー", false) ?? undefined;
+    const date_start = interaction.options.getString("日付ここから", false);
+    const date_end = interaction.options.getString("日付ここまで", false);
+    let day_start: Date | undefined = undefined;
+    let day_end: Date | undefined = undefined;
+    try {
+      if (date_start) {
+        day_start = parse(date_start, "y/M/d", new Date(), { locale: ja });
+        if (date_end) {
+          day_end = parse(date_end, "y/M/d", new Date(), { locale: ja });
+          day_end = addDays(day_end, 1);
+        } else {
+          day_end = addDays(day_start, 1);
+        }
+      }
+    } catch {
+      interaction.reply({
+        content: "日付の形式が違います。2022/01/01ではなく、2022/1/1のような形式になっていますか？",
+        ephemeral: true
+      });
+      return;
+    }
+    await interaction.deferReply();
+    const res = await prisma.point.findMany({
+      where: {
+        userId: user?.id,
+        game: {
+          finishedAt: {
+            gte: day_start,
+            lte: day_end
+          },
+          guild: {
+            id: interaction.guildId
+          }
+        }
+      },
+      orderBy: {
+        point: "desc"
+      },
+      select: {
+        point: true,
+        game: {
+          select: {
+            finishedAt: true,
+            createdAt: true
+          }
+        }
+      },
+      skip: rank - 1,
+      take: 10
+    });
+    const nickname = user && (getNickName(interaction.guild, user.id) ?? user.username);
+    let commandInfo = `${rank} to ${rank + 10}`;
+    if (nickname) commandInfo += nickname;
+    if (day_start) commandInfo += format(day_start, "y/M/d", { locale: ja });
+    commandInfo += ":\n";
+    interaction.editReply(
+      commandInfo +
+      res.map(record => {
+        const timeStr = record.game.finishedAt
+          ? format(record.game.finishedAt, " HH:mm:ss ", { locale: ja })
+          : format(record.game.createdAt, "(HH:mm:ss)", { locale: ja });
+        return `${timeStr} ${record.point}`
+      }).join("\n")
+    );
   }
 });
 
@@ -159,6 +276,10 @@ function getPoint(time: bigint) {
 
 function AbsBigInt(i: bigint) {
   return i > 0 ? i : -i;
+}
+
+function getNickName(guild: Guild | null, userId: string) {
+  return guild?.members.cache.get(userId)?.nickname;
 }
 
 
@@ -219,7 +340,7 @@ async function game(dbgameid: number, channel: TextBasedChannels, participantIds
     })
     .forEach((reactionTime, i) => {
       const nickname =
-        gamemessage.guild?.members.cache.get(reactionTime.user.id)?.nickname
+        getNickName(gamemessage.guild, reactionTime.user.id)
         ?? reactionTime.user.username;
       let time = AbsBigInt(reactionTime.time).toString().padStart(10, "0");
       const otime = time.substr(0, time.length - 9) + "." + time.substr(time.length - 9, 5);
