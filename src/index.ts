@@ -153,7 +153,9 @@ client.on('interactionCreate', async interaction => {
 });
 
 function getPoint(time: bigint) {
-  return Number(BigInt(1e10) / AbsBigInt(time));
+  let absed = AbsBigInt(time);
+  if (absed === BigInt(0)) absed = BigInt(1);
+  return Number(BigInt(1e10) / absed);
 }
 
 function AbsBigInt(i: bigint) {
