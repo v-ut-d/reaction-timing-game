@@ -1,0 +1,43 @@
+{
+  "name": "reaction-timing-game",
+  "version": "0.0.1",
+  "description": "タイミング良くリアクションを押すゲーム",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "node .",
+    "dev": "cross-env NODE_ENV=development nodemon",
+    "clean": "rimraf dist/*",
+    "tsc": "tsc",
+    "build": "npm-run-all clean tsc"
+  },
+  "dependencies": {
+    "@discordjs/builders": "^0.8.2",
+    "@discordjs/rest": "^0.1.0-canary.0",
+    "@prisma/client": "^3.5.0",
+    "@types/node": "^16.11.8",
+    "discord-api-types": "^0.24.0",
+    "discord.js": "^13.3.1",
+    "dotenv": "^10.0.0",
+    "npm-run-all": "^4.1.5",
+    "prisma": "^3.5.0",
+    "sqlite3": "github:mapbox/node-sqlite3",
+    "typescript": "^4.4.4"
+  },
+  "engines": {
+    "node": "16.x"
+  },
+  "repository": {
+    "url": "https://github.com/v-ut-d/reaction-timing-game"
+  },
+  "license": "MIT",
+  "keywords": [
+    "node",
+    "discord.js",
+    "discord"
+  ],
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "nodemon": "^2.0.14",
+    "ts-node": "^10.4.0"
+  }
+}
