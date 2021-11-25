@@ -108,7 +108,6 @@ client.on('interactionCreate', async interaction => {
       prisma.game.create({
         data: {
           startedBy: interaction.user.id,
-          createdAt: new Date(),
           guildId: interaction.guildId
         }
       })
@@ -166,7 +165,7 @@ async function game(dbgameid: number, channel: TextBasedChannels, participantIds
   let messagecontent = participantIds.reduce((c, p) => c + `<@${p}>`, "");
   const mentionmessage = await channel.send(messagecontent);
 
-  prisma.game.update({
+  await prisma.game.update({
     where: {
       id: dbgameid
     },
@@ -212,6 +211,7 @@ async function game(dbgameid: number, channel: TextBasedChannels, participantIds
     }
   })
   let resultMessage = "";
+  let dbPromiseArray: Promise<unknown>[] = [];
   Object.values(diffwithnodupe)
     .sort((a, b) => {
       return AbsBigInt(a.time) > AbsBigInt(b.time) ? 1 : -1;
@@ -224,18 +224,20 @@ async function game(dbgameid: number, channel: TextBasedChannels, participantIds
       const otime = time.substr(0, time.length - 9) + "." + time.substr(time.length - 9, 5);
       resultMessage += `${i + 1}位: ${nickname ?? ""} ${otime} ${getPoint(reactionTime.time)}\n`;
 
-      prisma.point.create({
-        data: {
-          userId: reactionTime.user.id,
-          point: getPoint(reactionTime.time),
-          rawTimeNS: reactionTime.time,
-          gameId: dbgameid,
-          algorithmVersion: 1
-        }
-      });
+      dbPromiseArray.push(
+        prisma.point.create({
+          data: {
+            userId: reactionTime.user.id,
+            point: getPoint(reactionTime.time),
+            rawTimeNS: reactionTime.time,
+            gameId: dbgameid,
+            algorithmVersion: 1
+          }
+        })
+      );
     });
-
-  prisma.game.update({
+  await Promise.all(dbPromiseArray);
+  await prisma.game.update({
     where: {
       id: dbgameid
     },

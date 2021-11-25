@@ -23,7 +23,7 @@ model Point {
 model Game {
   id         Int       @id @default(autoincrement())
   startedBy  String
-  createdAt  DateTime
+  createdAt  DateTime  @default(now())
   startedAt  DateTime?
   finishedAt DateTime?
   points     Point[]
@@ -32,6 +32,6 @@ model Game {
 }
 
 model Guild {
-  id   String @id
+  id    String @id
   games Game[]
 }
