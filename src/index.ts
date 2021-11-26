@@ -12,11 +12,14 @@ const client = new Client({
 import { config as dotenvconfig } from 'dotenv';
 dotenvconfig();
 
-import { parse, format, addDays } from "date-fns";
+import { parse, format, addDays, subSeconds } from "date-fns";
 import ja from 'date-fns/locale/ja'
 
 const joinEmoji = "912979606238294016";
 const reactEmoji = "🔴";
+const countDownEmoji = "<a:countdown:913632527686725722>";
+
+const timeAdjustFactor = 334237733n;
 
 import setupCommands from "./commands";
 
@@ -65,6 +68,7 @@ client.on("ready", async () => {
 client.on("messageReactionAdd", (reaction, user) => {
   const time = process.hrtime.bigint();
   if (user.bot) return;
+  if (reaction.emoji.name !== reactEmoji) return;
   const reactionTimeArray = getFromDiscordMessageTree(reactionCache, reaction.message);
   if (reactionTimeArray) {
     reactionTimeArray.push({
@@ -93,7 +97,7 @@ client.on('interactionCreate', async interaction => {
           .setStyle('DANGER'),
       );
 
-    await interaction.reply({ content: "ゲーム操作:", components: [row_pri], ephemeral: true });
+    await interaction.reply({ content: "ゲーム操作:", components: [row_pri], ephemeral: false });
     const message = await interaction.channel?.send({
       content:
         `${interaction.user.username}がゲームを始めました。\n参加する人は<:join:912979606238294016>で反応してください。`
@@ -128,22 +132,24 @@ client.on('interactionCreate', async interaction => {
       message?.awaitReactions({
         max: max_reaction,
         time: timeout,
-        filter: function (reaction) {
-          return reaction.emoji.id === joinEmoji
+        filter: function (reaction, user) {
+          return reaction.emoji.id === joinEmoji && !user.bot
         }
       }),
     ]).catch(() => false);
+
+    !interaction.ephemeral && interaction.deleteReply().catch(() => false);
+
     const participants = await message?.reactions.cache.get(joinEmoji)?.users.fetch();
+
     if (
       res &&
-      !(res !== true && res instanceof MessageComponentInteraction &&
-        res.customId === "cancel") &&
+      !(res instanceof MessageComponentInteraction && res.customId === "cancel") &&
       participants &&
       participants.size >= 2) {
       const participantIds = participants.map(p => p.id).filter(id => id !== client.user?.id);
       await game((await createResult).id, interaction.channel, participantIds);
     }
-    interaction.deleteReply().catch(() => false);
     !message?.deleted && message?.delete();
 
   } else if (interaction.commandName === "points") {
@@ -240,6 +246,7 @@ client.on('interactionCreate', async interaction => {
         point: "desc"
       },
       select: {
+        userId: true,
         point: true,
         game: {
           select: {
@@ -252,17 +259,24 @@ client.on('interactionCreate', async interaction => {
       take: 10
     });
     const nickname = user && (getNickName(interaction.guild, user.id) ?? user.username);
-    let commandInfo = `${rank} to ${rank + 10}`;
-    if (nickname) commandInfo += nickname;
+    let commandInfo = `Ranking `;
+    if (nickname) commandInfo += nickname + " ";
     if (day_start) commandInfo += format(day_start, "y/M/d", { locale: ja });
+    if (day_end) commandInfo += " to " + format(subSeconds(day_end, 1), "y/M/d", { locale: ja });
     commandInfo += ":\n";
     interaction.editReply(
       commandInfo +
-      res.map(record => {
+      res.map((record, i) => {
+        let nn: string | undefined;
+        if (!nickname) {
+          const u = interaction.guild?.members.cache.get(record.userId);
+          nn = u?.displayName;
+        }
+        if (!nn) nn = "";
         const timeStr = record.game.finishedAt
-          ? format(record.game.finishedAt, " HH:mm:ss ", { locale: ja })
-          : format(record.game.createdAt, "(HH:mm:ss)", { locale: ja });
-        return `${timeStr} ${record.point}`
+          ? format(record.game.finishedAt, "yyyy/MM/dd HH:mm:ss ", { locale: ja })
+          : format(record.game.createdAt, "(yyyy/MM/dd HH:mm:ss)", { locale: ja });
+        return `${i + 1}位 ${nn} ${timeStr} ${record.point}`
       }).join("\n")
     );
   }
@@ -303,21 +317,18 @@ async function game(dbgameid: number, channel: TextBasedChannels, participantIds
     setToDiscordMessageTree(reactionCache, gamemessage);
     reactionCache[gamemessage.guildId][gamemessage.channelId][gamemessage.id] = [];
   }
-  for (let current = 5; current > 0; current--) {
-    gamemessage.edit(current.toString());
-    await new Promise(resolve => setTimeout(resolve, 1000));
-  }
-  const zero_before = process.hrtime.bigint();
-  await gamemessage.edit("0");
-  const zero_after = process.hrtime.bigint();
-  for (let current = -1; current > -5; current--) {
-    gamemessage.edit(current.toString());
-    await new Promise(resolve => setTimeout(resolve, 1000));
-  }
-  gamemessage.edit("-5");
 
-  //'0'の送信前後の時刻を平均する
-  const zero = (zero_after + zero_before) / BigInt(2);
+
+  const before = process.hrtime.bigint();
+  await gamemessage.edit(`${countDownEmoji}`);
+  const after = process.hrtime.bigint();
+
+  console.log(after - before)
+  //const zero = (before + after) / BigInt(2) + BigInt(5 * 1e9);
+  const zero = after + BigInt(5 * 1e9) + timeAdjustFactor;
+
+  await new Promise(resolve => setTimeout(resolve, 12000));
+
   const reactionTimeArray = getFromDiscordMessageTree(reactionCache, gamemessage)
   if (!reactionTimeArray) return;
   const diffed: ReactionTime[] = reactionTimeArray.map(reactionTime => {
@@ -339,6 +350,7 @@ async function game(dbgameid: number, channel: TextBasedChannels, participantIds
       return AbsBigInt(a.time) > AbsBigInt(b.time) ? 1 : -1;
     })
     .forEach((reactionTime, i) => {
+      console.log(reactionTime.time);
       const nickname =
         getNickName(gamemessage.guild, reactionTime.user.id)
         ?? reactionTime.user.username;
@@ -367,8 +379,9 @@ async function game(dbgameid: number, channel: TextBasedChannels, participantIds
       finishedAt: new Date(),
     }
   });
-
-  gamemessage.edit(resultMessage);
+  if (resultMessage) {
+    gamemessage.edit(resultMessage);
+  }
   mentionmessage.delete();
 }
 
