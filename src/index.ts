@@ -291,26 +291,33 @@ client.on('interactionCreate', async interaction => {
       skip: rank - 1,
       take: 10
     });
+
     const nickname = user && getDisplayName(interaction.guild, user.id);
     let commandInfo = `Ranking `;
     if (nickname) commandInfo += nickname + " ";
     if (day_start) commandInfo += datefns.format(day_start, "y/M/d", { locale: ja });
     if (day_end) commandInfo += " to " + datefns.format(datefns.subSeconds(day_end, 1), "y/M/d", { locale: ja });
     commandInfo += ":\n";
-    interaction.editReply(
-      commandInfo +
-      res.map((record, i) => {
+
+    const ResultArray = await Promise.all(
+      res.map(async (record, i) => {
         let nn: string | undefined;
-        if (!nickname) {
-          const u = interaction.guild?.members.cache.get(record.userId);
+        if (!user) {
+          const u = await interaction.guild?.members.fetch(record.userId);
           nn = u?.displayName;
         }
         if (!nn) nn = "";
+
         const timeStr = record.game.finishedAt
           ? datefns.format(record.game.finishedAt, "yyyy/MM/dd HH:mm:ss ", { locale: ja })
           : datefns.format(record.game.createdAt, "(yyyy/MM/dd HH:mm:ss)", { locale: ja });
+
         return `${i + 1}位 ${nn} ${timeStr} ${record.point}`
-      }).join("\n")
+      })
+    );
+
+    interaction.editReply(
+      commandInfo + ResultArray.join("\n")
     );
   }
 });
