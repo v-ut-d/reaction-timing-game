@@ -142,7 +142,7 @@ client.on('interactionCreate', async interaction => {
 
 
     const participants = await message?.reactions.cache.get(joinEmoji)?.users.fetch();
-    
+
     !message?.deleted && await message?.delete();
 
     if (
@@ -167,17 +167,19 @@ client.on('interactionCreate', async interaction => {
         gameMessage = await interaction.channel.send("5秒後にカウントダウンを開始します");
       }
 
+      setTimeout(() => {
+        mentionMessage?.delete();
+      }, 5000);
+
       const resultString = await game((await createResult).id, gameMessage);
 
       if (resultString) {
         if (datefns.compareAsc(tokenExpiresAt, new Date()) > 0) {
           await Promise.all([
-            interaction.editReply({ content: resultString, components: [] }),
-            mentionMessage.delete()
+            interaction.editReply({ content: resultString, components: [] })
           ]);
         } else {
           await Promise.all([
-            mentionMessage.delete(),
             gameMessage.edit(resultString)
           ]);
         }
