@@ -353,7 +353,7 @@ async function game(dbgameid: number, gamemessage: Message) {
 
 
   const before = process.hrtime.bigint();
-  await gamemessage.edit(`${countDownEmoji}`);
+  await gamemessage.edit(countDownEmoji.repeat(4) + "\n" + countDownEmoji.repeat(4));
   const after = process.hrtime.bigint();
 
   console.log(after - before)
