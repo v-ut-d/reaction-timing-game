@@ -175,13 +175,9 @@ client.on('interactionCreate', async interaction => {
 
       if (resultString) {
         if (datefns.compareAsc(tokenExpiresAt, new Date()) > 0) {
-          await Promise.all([
-            interaction.editReply({ content: resultString, components: [] })
-          ]);
+          await interaction.editReply({ content: resultString, components: [] })
         } else {
-          await Promise.all([
-            gameMessage.edit(resultString)
-          ]);
+          await gameMessage.edit(resultString)
         }
       }
     } else {
