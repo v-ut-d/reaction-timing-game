@@ -1,4 +1,4 @@
-import { Client, Intents, MessageActionRow, MessageButton, MessageComponentInteraction, Message, PartialMessage, PartialMessageReaction, PartialUser, TextBasedChannels, TextChannel, User, Guild } from "discord.js";
+import { Client, Intents, MessageActionRow, MessageButton, MessageComponentInteraction, Message, PartialMessage, PartialMessageReaction, PartialUser, TextBasedChannels, TextChannel, User, Guild, Interaction, CommandInteraction } from "discord.js";
 
 const client = new Client({
   intents: [
@@ -12,7 +12,7 @@ const client = new Client({
 import { config as dotenvconfig } from 'dotenv';
 dotenvconfig();
 
-import { parse, format, addDays, subSeconds } from "date-fns";
+import * as datefns from "date-fns";
 import ja from 'date-fns/locale/ja'
 
 const joinEmoji = "912979606238294016";
@@ -79,6 +79,7 @@ client.on("messageReactionAdd", (reaction, user) => {
 })
 
 client.on('interactionCreate', async interaction => {
+  const tokenExpiresAt = datefns.addMinutes(new Date(), 15);
   if (!interaction.isCommand()) return;
   if (interaction.commandName === 'start') {
     if (!interaction.channel) return;
@@ -105,6 +106,7 @@ client.on('interactionCreate', async interaction => {
     if (message) {
       message.react("<:join:912979606238294016>");
     }
+
 
     const createResult = prisma.guild.upsert({
       where: { id: interaction.guildId },
@@ -138,9 +140,10 @@ client.on('interactionCreate', async interaction => {
       }),
     ]).catch(() => false);
 
-    !interaction.ephemeral && interaction.deleteReply().catch(() => false);
 
     const participants = await message?.reactions.cache.get(joinEmoji)?.users.fetch();
+    
+    !message?.deleted && await message?.delete();
 
     if (
       res &&
@@ -148,16 +151,48 @@ client.on('interactionCreate', async interaction => {
       participants &&
       participants.size >= 2) {
       const participantIds = participants.map(p => p.id).filter(id => id !== client.user?.id);
-      await game((await createResult).id, interaction.channel, participantIds);
+      const mentionString = getMentionString(participantIds);
+
+      let mentionMessage: Message | undefined;
+      let gameMessage: Message | undefined;
+      if (datefns.compareAsc(tokenExpiresAt, new Date()) > 0) {
+        //Before Expiration
+        gameMessage =
+          (await interaction.editReply({ content: "5秒後にカウントダウンを開始します", components: [] })) as Message;
+        mentionMessage = (await interaction.followUp(mentionString)) as Message;
+      } else {
+        //After Expiration
+        !interaction.ephemeral && await interaction.deleteReply().catch(() => false);
+        mentionMessage = await interaction.channel.send(mentionString);
+        gameMessage = await interaction.channel.send("5秒後にカウントダウンを開始します");
+      }
+
+      const resultString = await game((await createResult).id, gameMessage);
+
+      if (resultString) {
+        if (datefns.compareAsc(tokenExpiresAt, new Date()) > 0) {
+          await Promise.all([
+            interaction.editReply({ content: resultString, components: [] }),
+            mentionMessage.delete()
+          ]);
+        } else {
+          await Promise.all([
+            mentionMessage.delete(),
+            gameMessage.edit(resultString)
+          ]);
+        }
+      }
+    } else {
+      !interaction.ephemeral && await interaction.deleteReply().catch(() => false);
     }
-    !message?.deleted && message?.delete();
+
 
   } else if (interaction.commandName === "points") {
     const user = interaction.options.getUser("ユーザー", true);
     const date = interaction.options.getString("日付", true);
     let day = new Date();
     try {
-      day = parse(date, "y/M/d", new Date(), { locale: ja });
+      day = datefns.parse(date, "y/M/d", new Date(), { locale: ja });
     } catch {
       interaction.reply({
         content: "日付の形式が違います。2022/01/01ではなく、2022/1/1のような形式になっていますか？",
@@ -172,7 +207,7 @@ client.on('interactionCreate', async interaction => {
         game: {
           finishedAt: {
             gte: day,
-            lte: addDays(day, 1)
+            lte: datefns.addDays(day, 1)
           },
           guild: {
             id: interaction.guildId
@@ -196,11 +231,11 @@ client.on('interactionCreate', async interaction => {
     });
     const nickname = getDisplayName(interaction.guild, user.id);
     interaction.editReply(
-      `${nickname} ${format(day, "y/M/d")}\n` +
+      `${nickname} ${datefns.format(day, "y/M/d")}\n` +
       res.map(record => {
         const timeStr = record.game.finishedAt
-          ? format(record.game.finishedAt, " HH:mm:ss ", { locale: ja })
-          : format(record.game.createdAt, "(HH:mm:ss)", { locale: ja });
+          ? datefns.format(record.game.finishedAt, " HH:mm:ss ", { locale: ja })
+          : datefns.format(record.game.createdAt, "(HH:mm:ss)", { locale: ja });
         return `${timeStr} ${record.point}`
       }).join("\n")
     );
@@ -213,12 +248,12 @@ client.on('interactionCreate', async interaction => {
     let day_end: Date | undefined = undefined;
     try {
       if (date_start) {
-        day_start = parse(date_start, "y/M/d", new Date(), { locale: ja });
+        day_start = datefns.parse(date_start, "y/M/d", new Date(), { locale: ja });
         if (date_end) {
-          day_end = parse(date_end, "y/M/d", new Date(), { locale: ja });
-          day_end = addDays(day_end, 1);
+          day_end = datefns.parse(date_end, "y/M/d", new Date(), { locale: ja });
+          day_end = datefns.addDays(day_end, 1);
         } else {
-          day_end = addDays(day_start, 1);
+          day_end = datefns.addDays(day_start, 1);
         }
       }
     } catch {
@@ -261,8 +296,8 @@ client.on('interactionCreate', async interaction => {
     const nickname = user && getDisplayName(interaction.guild, user.id);
     let commandInfo = `Ranking `;
     if (nickname) commandInfo += nickname + " ";
-    if (day_start) commandInfo += format(day_start, "y/M/d", { locale: ja });
-    if (day_end) commandInfo += " to " + format(subSeconds(day_end, 1), "y/M/d", { locale: ja });
+    if (day_start) commandInfo += datefns.format(day_start, "y/M/d", { locale: ja });
+    if (day_end) commandInfo += " to " + datefns.format(datefns.subSeconds(day_end, 1), "y/M/d", { locale: ja });
     commandInfo += ":\n";
     interaction.editReply(
       commandInfo +
@@ -274,8 +309,8 @@ client.on('interactionCreate', async interaction => {
         }
         if (!nn) nn = "";
         const timeStr = record.game.finishedAt
-          ? format(record.game.finishedAt, "yyyy/MM/dd HH:mm:ss ", { locale: ja })
-          : format(record.game.createdAt, "(yyyy/MM/dd HH:mm:ss)", { locale: ja });
+          ? datefns.format(record.game.finishedAt, "yyyy/MM/dd HH:mm:ss ", { locale: ja })
+          : datefns.format(record.game.createdAt, "(yyyy/MM/dd HH:mm:ss)", { locale: ja });
         return `${i + 1}位 ${nn} ${timeStr} ${record.point}`
       }).join("\n")
     );
@@ -296,11 +331,12 @@ function getDisplayName(guild: Guild | null, userId: string) {
   return guild?.members.cache.get(userId)?.displayName;
 }
 
+function getMentionString(participantIds: string[]) {
+  return participantIds.reduce((c, p) => c + `<@${p}>`, "");
+}
 
-async function game(dbgameid: number, channel: TextBasedChannels, participantIds: string[]) {
-  let messagecontent = participantIds.reduce((c, p) => c + `<@${p}>`, "");
-  const mentionmessage = await channel.send(messagecontent);
 
+async function game(dbgameid: number, gamemessage: Message) {
   await prisma.game.update({
     where: {
       id: dbgameid
@@ -310,7 +346,6 @@ async function game(dbgameid: number, channel: TextBasedChannels, participantIds
     }
   });
 
-  const gamemessage = await channel.send("5秒後にカウントダウンを開始します");
   await new Promise(resolve => setTimeout(resolve, 5000));
   gamemessage.react(reactEmoji);
   if (gamemessage.guildId && gamemessage.channelId) {
@@ -376,10 +411,7 @@ async function game(dbgameid: number, channel: TextBasedChannels, participantIds
       finishedAt: new Date(),
     }
   });
-  if (resultMessage) {
-    gamemessage.edit(resultMessage);
-  }
-  mentionmessage.delete();
+  return resultMessage;
 }
 
 if (process.env.DISCORD_BOT_TOKEN == undefined) {
