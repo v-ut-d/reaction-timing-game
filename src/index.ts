@@ -194,7 +194,7 @@ client.on('interactionCreate', async interaction => {
         }
       }
     });
-    const nickname = getNickName(interaction.guild, user.id) ?? user.username;
+    const nickname = getDisplayName(interaction.guild, user.id);
     interaction.editReply(
       `${nickname} ${format(day, "y/M/d")}\n` +
       res.map(record => {
@@ -258,7 +258,7 @@ client.on('interactionCreate', async interaction => {
       skip: rank - 1,
       take: 10
     });
-    const nickname = user && (getNickName(interaction.guild, user.id) ?? user.username);
+    const nickname = user && getDisplayName(interaction.guild, user.id);
     let commandInfo = `Ranking `;
     if (nickname) commandInfo += nickname + " ";
     if (day_start) commandInfo += format(day_start, "y/M/d", { locale: ja });
@@ -292,8 +292,8 @@ function AbsBigInt(i: bigint) {
   return i > 0 ? i : -i;
 }
 
-function getNickName(guild: Guild | null, userId: string) {
-  return guild?.members.cache.get(userId)?.nickname;
+function getDisplayName(guild: Guild | null, userId: string) {
+  return guild?.members.cache.get(userId)?.displayName;
 }
 
 
@@ -337,23 +337,20 @@ async function game(dbgameid: number, channel: TextBasedChannels, participantIds
       user: reactionTime.user
     };
   });
-  let diffwithnodupe: { [k: string]: ReactionTime } = {};
+  let diffdeduped: { [k: string]: ReactionTime } = {};
   diffed.forEach(reactionTime => {
-    if (!diffwithnodupe[reactionTime.user.id]) {
-      diffwithnodupe[reactionTime.user.id] = reactionTime;
+    if (!diffdeduped[reactionTime.user.id]) {
+      diffdeduped[reactionTime.user.id] = reactionTime;
     }
   })
   let resultMessage = "";
   let dbPromiseArray: Promise<unknown>[] = [];
-  Object.values(diffwithnodupe)
+  Object.values(diffdeduped)
     .sort((a, b) => {
       return AbsBigInt(a.time) > AbsBigInt(b.time) ? 1 : -1;
     })
     .forEach((reactionTime, i) => {
-      console.log(reactionTime.time);
-      const nickname =
-        getNickName(gamemessage.guild, reactionTime.user.id)
-        ?? reactionTime.user.username;
+      const nickname = getDisplayName(gamemessage.guild, reactionTime.user.id);
       let time = AbsBigInt(reactionTime.time).toString().padStart(10, "0");
       const otime = time.substr(0, time.length - 9) + "." + time.substr(time.length - 9, 5);
       resultMessage += `${i + 1}位: ${nickname ?? ""} ${otime} ${getPoint(reactionTime.time)}\n`;
