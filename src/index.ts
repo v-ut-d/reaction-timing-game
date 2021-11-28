@@ -18,6 +18,7 @@ import ja from 'date-fns/locale/ja'
 const joinEmoji = "912979606238294016";
 const reactEmoji = "🔴";
 const countDownEmoji = "<a:countdown:913632527686725722>";
+const countDownEmoji2 = "<a:kaishimae:914348396318449705>";
 
 const timeAdjustFactor = 334237733n;
 
@@ -122,6 +123,7 @@ client.on('interactionCreate', async interaction => {
     );
 
     const timeout = 2 * 24 * 3600 * 1000;//2 days
+    const timeoutAt = datefns.addMilliseconds(new Date(), timeout);
     const res = await Promise.race([
       interaction.channel?.awaitMessageComponent({
         componentType: "BUTTON",
@@ -140,6 +142,11 @@ client.on('interactionCreate', async interaction => {
       }),
     ]).catch(() => false);
 
+    if (datefns.compareAsc(timeoutAt, new Date()) < 0) {
+      await interaction.deleteReply();
+      return;
+    }
+
 
     const participants = await message?.reactions.cache.get(joinEmoji)?.users.fetch();
 
@@ -153,18 +160,22 @@ client.on('interactionCreate', async interaction => {
       const participantIds = participants.map(p => p.id).filter(id => id !== client.user?.id);
       const mentionString = getMentionString(participantIds);
 
+      let secondGameMessage: Message | undefined;
+
       let mentionMessage: Message | undefined;
       let gameMessage: Message | undefined;
       if (datefns.compareAsc(tokenExpiresAt, new Date()) > 0) {
         //Before Expiration
         gameMessage =
           (await interaction.editReply({ content: "5秒後にカウントダウンを開始します", components: [] })) as Message;
+        secondGameMessage = await interaction.channel.send(countDownEmoji2.repeat(4));
         mentionMessage = (await interaction.followUp(mentionString)) as Message;
       } else {
         //After Expiration
         !interaction.ephemeral && await interaction.deleteReply().catch(() => false);
         mentionMessage = await interaction.channel.send(mentionString);
         gameMessage = await interaction.channel.send("5秒後にカウントダウンを開始します");
+        secondGameMessage = await interaction.channel.send(countDownEmoji2.repeat(4));
       }
 
       setTimeout(() => {
@@ -173,11 +184,19 @@ client.on('interactionCreate', async interaction => {
 
       const resultString = await game((await createResult).id, gameMessage);
 
+      await secondGameMessage.delete();
+
       if (resultString) {
         if (datefns.compareAsc(tokenExpiresAt, new Date()) > 0) {
           await interaction.editReply({ content: resultString, components: [] })
         } else {
           await gameMessage.edit(resultString)
+        }
+      } else {
+        if (datefns.compareAsc(tokenExpiresAt, new Date()) > 0) {
+          await interaction.deleteReply();
+        } else {
+          await gameMessage.delete();
         }
       }
     } else {
@@ -360,7 +379,7 @@ async function game(dbgameid: number, gamemessage: Message) {
 
 
   const before = process.hrtime.bigint();
-  await gamemessage.edit(countDownEmoji.repeat(4) + "\n" + countDownEmoji.repeat(4));
+  await gamemessage.edit(countDownEmoji.repeat(4));
   const after = process.hrtime.bigint();
 
   console.log(after - before)
