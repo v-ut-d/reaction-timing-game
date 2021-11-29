@@ -128,8 +128,8 @@ client.on('interactionCreate', async interaction => {
       interaction.channel?.awaitMessageComponent({
         componentType: "BUTTON",
         time: timeout,
-        filter: function (i) {
-          i.deferUpdate();
+        filter: async function (i) {
+          await i.deferUpdate();
           return i.user.id === interaction.user.id;
         }
       }),
@@ -160,7 +160,6 @@ client.on('interactionCreate', async interaction => {
       const participantIds = participants.map(p => p.id).filter(id => id !== client.user?.id);
       const mentionString = getMentionString(participantIds);
 
-      let secondGameMessage: Message | undefined;
 
       let mentionMessage: Message | undefined;
       let gameMessage: Message | undefined;
@@ -168,14 +167,12 @@ client.on('interactionCreate', async interaction => {
         //Before Expiration
         gameMessage =
           (await interaction.editReply({ content: "5秒後にカウントダウンを開始します", components: [] })) as Message;
-        secondGameMessage = await interaction.channel.send(countDownEmoji2.repeat(4));
         mentionMessage = (await interaction.followUp(mentionString)) as Message;
       } else {
         //After Expiration
         !interaction.ephemeral && await interaction.deleteReply().catch(() => false);
         mentionMessage = await interaction.channel.send(mentionString);
         gameMessage = await interaction.channel.send("5秒後にカウントダウンを開始します");
-        secondGameMessage = await interaction.channel.send(countDownEmoji2.repeat(4));
       }
 
       setTimeout(() => {
@@ -183,8 +180,6 @@ client.on('interactionCreate', async interaction => {
       }, 5000);
 
       const resultString = await game((await createResult).id, gameMessage);
-
-      await secondGameMessage.delete();
 
       if (resultString) {
         if (datefns.compareAsc(tokenExpiresAt, new Date()) > 0) {
@@ -370,23 +365,41 @@ async function game(dbgameid: number, gamemessage: Message) {
     }
   });
 
-  await new Promise(resolve => setTimeout(resolve, 5000));
-  gamemessage.react(reactEmoji);
-  if (gamemessage.guildId && gamemessage.channelId) {
-    setToDiscordMessageTree(reactionCache, gamemessage);
-    reactionCache[gamemessage.guildId][gamemessage.channelId][gamemessage.id] = [];
-  }
+  const gamemessage_sub_promise =
+    gamemessage.channel.send(countDownEmoji2.repeat(4));
+
+  await new Promise(resolve => setTimeout(resolve, 5000))
 
 
   const before = process.hrtime.bigint();
-  await gamemessage.edit(countDownEmoji.repeat(4));
-  const after = process.hrtime.bigint();
+
+  let after: bigint | undefined;
+
+  await Promise.all([
+    gamemessage.edit(countDownEmoji.repeat(4))
+      .then(() => {
+        after = process.hrtime.bigint();
+      }),
+    gamemessage.react(reactEmoji),
+    (async () => {
+      if (gamemessage.guildId && gamemessage.channelId) {
+        setToDiscordMessageTree(reactionCache, gamemessage);
+        reactionCache[gamemessage.guildId][gamemessage.channelId][gamemessage.id] = [];
+      }
+    })(),
+    //これの正確性は結果に関係しない
+    new Promise(resolve => setTimeout(resolve, 12000))
+  ]);
+
+
+  if (!after) return;
+
 
   console.log(after - before)
   //const zero = (before + after) / BigInt(2) + BigInt(5 * 1e9);
   const zero = after + BigInt(5 * 1e9) + timeAdjustFactor;
 
-  await new Promise(resolve => setTimeout(resolve, 12000));
+  await (await gamemessage_sub_promise).delete();
 
   const reactionTimeArray = getFromDiscordMessageTree(reactionCache, gamemessage)
   if (!reactionTimeArray) return;
