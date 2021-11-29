@@ -84,7 +84,7 @@ client.on('interactionCreate', async interaction => {
   if (!interaction.isCommand()) return;
   if (interaction.commandName === 'start') {
     if (!interaction.channel) return;
-    const max_reaction = Math.min(interaction.options.getInteger("参加者数の上限") ?? 10, 50);
+    const max_reaction = Math.min(interaction.options.getInteger("参加者数の上限") ?? 4, 4);
     const row_pri = new MessageActionRow()
       .addComponents(
         new MessageButton()

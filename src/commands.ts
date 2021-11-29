@@ -8,7 +8,7 @@ const commands = [
         .setDescription('ゲームを始めます')
         .addIntegerOption(option =>
             option.setName("参加者数の上限")
-                .setDescription("参加者数がこの人数に達すると自動的にゲームが始まります。デフォルトは10人で、最大50人です。")
+                .setDescription("参加者数がこの人数に達すると自動的にゲームが始まります。最大4人です。")
         ),
     new SlashCommandBuilder()
         .setName('points')
