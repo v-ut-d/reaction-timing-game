@@ -125,13 +125,12 @@ client.on('interactionCreate', async interaction => {
 
     const timeout = 2 * 24 * 3600 * 1000;//2 days
     const timeoutAt = datefns.addMilliseconds(new Date(), timeout);
-    const updates: Promise<void>[] = [];
     const res = await Promise.race([
       interaction.channel?.awaitMessageComponent({
         componentType: "BUTTON",
         time: timeout,
         filter: function (i) {
-          updates.push(i.deferUpdate());
+          i.deferUpdate().catch(() => { });
           return i.user.id === interaction.user.id;
         }
       }),
@@ -143,8 +142,6 @@ client.on('interactionCreate', async interaction => {
         }
       }),
     ]).catch(() => false);
-
-    await Promise.all(updates);
 
     if (datefns.compareAsc(timeoutAt, new Date()) < 0) {
       await interaction.deleteReply();
@@ -330,7 +327,7 @@ client.on('interactionCreate', async interaction => {
           ? datefns.format(record.game.finishedAt, "yyyy/MM/dd HH:mm:ss ", { locale: ja })
           : datefns.format(record.game.createdAt, "(yyyy/MM/dd HH:mm:ss)", { locale: ja });
 
-        return `${i + 1}位 ${nn} ${timeStr} ${record.point}`
+        return `${i + rank}位 ${nn} ${timeStr} ${record.point}`
       })
     );
 
