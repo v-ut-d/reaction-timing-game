@@ -100,9 +100,10 @@ client.on('interactionCreate', async interaction => {
       );
 
     await interaction.reply({ content: "ゲーム操作:", components: [row_pri], ephemeral: false });
+    const nickname = getDisplayName(interaction.guild, interaction.user.id);
     const message = await interaction.channel?.send({
       content:
-        `${interaction.user.username}がゲームを始めました。\n参加する人は<:join:912979606238294016>で反応してください。`
+        `${nickname}がゲームを始めました。\n参加する人は<:join:912979606238294016>で反応してください。`
     });
     if (message) {
       message.react("<:join:912979606238294016>");
