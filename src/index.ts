@@ -168,19 +168,20 @@ client.on('interactionCreate', async interaction => {
       const participantIds = participants.map(p => p.id).filter(id => id !== client.user?.id);
       const mentionString = getMentionString(participantIds);
 
+      const messageString = `5秒後にカウントダウンを開始します。0になった瞬間に${config.reactEmoji}でリアクションしてください。`;
 
       let mentionMessage: Message | undefined;
       let gameMessage: Message | undefined;
       if (datefns.compareAsc(tokenExpiresAt, new Date()) > 0) {
         //Before Expiration
         gameMessage =
-          (await interaction.editReply({ content: "5秒後にカウントダウンを開始します", components: [] })) as Message;
+          (await interaction.editReply({ content: messageString, components: [] })) as Message;
         mentionMessage = (await interaction.followUp(mentionString)) as Message;
       } else {
         //After Expiration
         !interaction.ephemeral && await interaction.deleteReply().catch(() => false);
         mentionMessage = await interaction.channel.send(mentionString);
-        gameMessage = await interaction.channel.send("5秒後にカウントダウンを開始します");
+        gameMessage = await interaction.channel.send(messageString);
       }
 
       setTimeout(() => {
