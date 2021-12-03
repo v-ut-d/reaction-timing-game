@@ -2,6 +2,8 @@ import { SlashCommandBuilder } from "@discordjs/builders";
 import { REST } from '@discordjs/rest';
 const { Routes } = require('discord-api-types/v9');
 
+import { configArray } from "./config";
+
 const commands = [
     new SlashCommandBuilder()
         .setName('start')
@@ -42,6 +44,19 @@ const commands = [
             option.setName("日付ここまで")
                 .setDescription("日付は 年(西暦)/月/日 の形式で入力してください。指定しないと全期間について集計します。")
         ),
+    new SlashCommandBuilder()
+        .setName("config")
+        .setDescription("設定を表示・変更します。なお、変更ができるのは環境変数で設定したユーザーに限られます。")
+        .addStringOption(option =>
+            option.setName("設定項目")
+                .setDescription("表示・変更する項目を選んでください")
+                .addChoices(configArray.map(c => [c, c]))
+                .setRequired(true)
+        )
+        .addStringOption(option =>
+            option.setName("値")
+                .setDescription("設定項目を変更する場合は、設定する値を入力してください。")
+        )
 
 ]
     .map(command => command.toJSON());

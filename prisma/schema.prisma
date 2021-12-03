@@ -35,3 +35,9 @@ model Guild {
   id    String @id
   games Game[]
 }
+
+// id=joinEmoji,reactEmoji,countDownEmoji,kaishimaeEmoji,timeAdjustFactor
+model Config {
+  key   String @id
+  value String
+}

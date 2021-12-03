@@ -15,17 +15,14 @@ dotenvconfig();
 import * as datefns from "date-fns";
 import ja from 'date-fns/locale/ja'
 
-const joinEmoji = "912979606238294016";
-const reactEmoji = "🔴";
-const countDownEmoji = "<a:countdown:913632527686725722>";
-const countDownEmoji2 = "<a:kaishimae:914348396318449705>";
-
-const timeAdjustFactor = 334237733n;
-
 import setupCommands from "./commands";
 
 import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
+
+import * as constantsconfig from "./config";
+
+let config: constantsconfig.ConfigurationType;
 
 
 interface DiscordMessageTree<T> {
@@ -69,7 +66,7 @@ client.on("ready", async () => {
 client.on("messageReactionAdd", (reaction, user) => {
   const time = process.hrtime.bigint();
   if (user.bot) return;
-  if (reaction.emoji.name !== reactEmoji) return;
+  if (reaction.emoji.name !== config.reactEmoji) return;
   const reactionTimeArray = getFromDiscordMessageTree(reactionCache, reaction.message);
   if (reactionTimeArray) {
     reactionTimeArray.push({
@@ -103,10 +100,10 @@ client.on('interactionCreate', async interaction => {
     const nickname = getDisplayName(interaction.guild, interaction.user.id);
     const message = await interaction.channel?.send({
       content:
-        `${nickname}がゲームを始めました。\n参加する人は<:join:912979606238294016>で反応してください。`
+        `${nickname}がゲームを始めました。\n参加する人は${config.joinEmoji}で反応してください。`
     });
     if (message) {
-      message.react("<:join:912979606238294016>");
+      message.react(config.joinEmoji);
     }
 
 
@@ -138,7 +135,7 @@ client.on('interactionCreate', async interaction => {
         max: max_reaction,
         time: timeout,
         filter: function (reaction, user) {
-          return reaction.emoji.id === joinEmoji && !user.bot
+          return reaction.emoji.toString() === config.joinEmoji && !user.bot
         }
       }),
     ]).catch(() => false);
@@ -148,8 +145,10 @@ client.on('interactionCreate', async interaction => {
       return;
     }
 
-
-    const participants = await message?.reactions.cache.get(joinEmoji)?.users.fetch();
+    const joinEmojiId = constantsconfig.getIdFromEmojiString(config.joinEmoji);
+    const participants =
+      joinEmojiId &&
+      await message?.reactions.cache.get(joinEmojiId)?.users.fetch();
 
     !message?.deleted && await message?.delete();
 
@@ -252,7 +251,7 @@ client.on('interactionCreate', async interaction => {
         return `${timeStr} ${record.point}`
       }).join("\n")
     );
-  } else if (interaction.commandName = "ranking") {
+  } else if (interaction.commandName === "ranking") {
     const rank = interaction.options.getInteger("順位", false) ?? 1;
     const user = interaction.options.getUser("ユーザー", false) ?? undefined;
     const date_start = interaction.options.getString("日付ここから", false);
@@ -334,6 +333,41 @@ client.on('interactionCreate', async interaction => {
     interaction.editReply(
       commandInfo + ResultArray.join("\n")
     );
+
+  } else if (interaction.commandName === "config") {
+    const key = interaction.options.getString("設定項目", true);
+    const value = interaction.options.getString("値", false);
+    if (value) {
+      if (
+        process.env.BOT_ADMIN_USER?.split(",")
+          .some(userid => userid.length === 18 && userid === interaction.user.id)) {
+        await interaction.deferReply();
+        const before = config[key as keyof constantsconfig.ConfigurationType];
+        constantsconfig.setConfig(prisma, key, value)
+          .then(async () => {
+            config = await constantsconfig.getConfig(prisma);
+            const after = config[key as keyof constantsconfig.ConfigurationType];
+            await interaction.editReply(`設定を変更しました。 ${key}: ${before}->${after}`)
+          })
+          .catch(async err => {
+            if (err instanceof Error && err.message !== "Validation failed") {
+              console.log(err);
+            }
+            await interaction.editReply(`設定の変更に失敗しました。 ${key}: ${before}=>${value}`);
+          });
+      } else {
+        await interaction.reply({
+          content: "環境変数で設定したユーザーのみが設定を変更できます",
+          ephemeral: true
+        });
+      }
+    } else {
+      if (constantsconfig.isInConfigurationTypesKey(key)) {
+        await interaction.reply(`${key}:${config[key]}`);
+      } else {
+        await interaction.reply({ content: "そのような設定項目は存在しません", ephemeral: true });
+      }
+    }
   }
 });
 
@@ -367,7 +401,7 @@ async function game(dbgameid: number, gamemessage: Message) {
   });
 
   const gamemessage_sub_promise =
-    gamemessage.channel.send(countDownEmoji2.repeat(4));
+    gamemessage.channel.send(config.kaishimaeEmoji.repeat(4));
 
   await new Promise(resolve => setTimeout(resolve, 5000))
 
@@ -377,11 +411,11 @@ async function game(dbgameid: number, gamemessage: Message) {
   let after: bigint | undefined;
 
   await Promise.all([
-    gamemessage.edit(countDownEmoji.repeat(4))
+    gamemessage.edit(config.countDownEmoji.repeat(4))
       .then(() => {
         after = process.hrtime.bigint();
       }),
-    gamemessage.react(reactEmoji),
+    gamemessage.react(config.reactEmoji),
     (async () => {
       if (gamemessage.guildId && gamemessage.channelId) {
         setToDiscordMessageTree(reactionCache, gamemessage);
@@ -398,7 +432,7 @@ async function game(dbgameid: number, gamemessage: Message) {
 
   console.log(after - before)
   //const zero = (before + after) / BigInt(2) + BigInt(5 * 1e9);
-  const zero = after + BigInt(5 * 1e9) + timeAdjustFactor;
+  const zero = after + BigInt(5 * 1e9) + config.timeAdjustFactor;
 
   await (await gamemessage_sub_promise).delete();
 
@@ -457,5 +491,9 @@ if (process.env.DISCORD_BOT_TOKEN == undefined) {
   process.exit(0);
 }
 
-client.login(process.env.DISCORD_BOT_TOKEN);
+constantsconfig.getConfig(prisma)
+  .then(_config => config = _config)
+  .then(() => {
+    client.login(process.env.DISCORD_BOT_TOKEN);
+  })
 
