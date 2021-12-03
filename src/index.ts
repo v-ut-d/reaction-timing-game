@@ -127,8 +127,13 @@ client.on('interactionCreate', async interaction => {
         componentType: "BUTTON",
         time: timeout,
         filter: function (i) {
-          i.deferUpdate().catch(() => { });
-          return i.user.id === interaction.user.id;
+          if (i.user.id === interaction.user.id) {
+            return true;
+          } else {
+            i.reply({ content: "このゲームを始めた人しか操作できません。", ephemeral: true })
+              .catch(() => { });
+            return false;
+          }
         }
       }),
       message?.awaitReactions({
