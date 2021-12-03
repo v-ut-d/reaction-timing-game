@@ -126,11 +126,14 @@ client.on('interactionCreate', async interaction => {
       interaction.channel?.awaitMessageComponent({
         componentType: "BUTTON",
         time: timeout,
-        filter: function (i) {
+        filter: async function (i) {
+          if (i.message.id !== (await interaction.fetchReply()).id) {
+            return false;
+          }
           if (i.user.id === interaction.user.id) {
             return true;
           } else {
-            i.reply({ content: "このゲームを始めた人しか操作できません。", ephemeral: true })
+            await i.reply({ content: "このゲームを始めた人しか操作できません。", ephemeral: true })
               .catch(() => { });
             return false;
           }
