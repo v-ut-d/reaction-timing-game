@@ -122,12 +122,14 @@ client.on('interactionCreate', async interaction => {
 
     const timeout = 2 * 24 * 3600 * 1000;//2 days
     const timeoutAt = datefns.addMilliseconds(new Date(), timeout);
+
+    const reply = await interaction.fetchReply();
     const res = await Promise.race([
       interaction.channel?.awaitMessageComponent({
         componentType: "BUTTON",
         time: timeout,
         filter: async function (i) {
-          if (i.message.id !== (await interaction.fetchReply()).id) {
+          if (i.message.id !== reply.id) {
             return false;
           }
           if (i.user.id === interaction.user.id) {
