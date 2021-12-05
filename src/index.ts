@@ -358,13 +358,13 @@ client.on('interactionCreate', async interaction => {
           .then(async () => {
             config = await constantsconfig.getConfig(prisma);
             const after = config[key as keyof constantsconfig.ConfigurationType];
-            await interaction.editReply(`設定を変更しました。 ${key}: ${before}->${after}`)
+            await interaction.editReply(`設定を変更しました。 ${key}: ${before} -> ${after}`)
           })
           .catch(async err => {
             if (err instanceof Error && err.message !== "Validation failed") {
               console.log(err);
             }
-            await interaction.editReply(`設定の変更に失敗しました。 ${key}: ${before}=>${value}`);
+            await interaction.editReply(`設定の変更に失敗しました。 ${key}: ${before} -> ${value}`);
           });
       } else {
         await interaction.reply({

@@ -158,7 +158,7 @@ export async function setConfig(prisma: PrismaClient, key: string, value: string
         },
         create: {
             key: key,
-            value: value
+            value: _value
         }
     });
 
