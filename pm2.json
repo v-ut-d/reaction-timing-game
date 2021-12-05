@@ -4,7 +4,12 @@
             "name": "reaction-timing-game",
             "script": "./dist",
             "instances": 1,
-            "watch": true,
+            "watch": [
+                "dist"
+            ],
+            "ignore_watch ": [
+                "prisma/database"
+            ],
             "exec_mode": "cluster",
             "source_map_support": true
         }
