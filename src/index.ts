@@ -440,11 +440,12 @@ async function game(dbgameid: number, gamemessage: Message) {
       .then(() => {
         after = process.hrtime.bigint();
       }),
-    gamemessage.react(config.reactEmoji),
+    (await gamemessage_sub_promise).react(config.reactEmoji),
     (async () => {
-      if (gamemessage.guildId && gamemessage.channelId) {
-        setToDiscordMessageTree(reactionCache, gamemessage);
-        reactionCache[gamemessage.guildId][gamemessage.channelId][gamemessage.id] = [];
+      const gm_sub = await gamemessage_sub_promise;
+      if (gm_sub.guildId && gm_sub.channelId) {
+        setToDiscordMessageTree(reactionCache, gm_sub);
+        reactionCache[gm_sub.guildId][gm_sub.channelId][gm_sub.id] = [];
       }
     })(),
     //これの正確性は結果に関係しない
@@ -459,9 +460,12 @@ async function game(dbgameid: number, gamemessage: Message) {
   //const zero = (before + after) / BigInt(2) + BigInt(5 * 1e9);
   const zero = after + BigInt(5 * 1e9) + config.timeAdjustFactor;
 
-  await (await gamemessage_sub_promise).delete();
+  const gm_sub = await gamemessage_sub_promise;
 
-  const reactionTimeArray = getFromDiscordMessageTree(reactionCache, gamemessage)
+  const reactionTimeArray = getFromDiscordMessageTree(reactionCache, gm_sub)
+
+  await gm_sub.delete();
+
   if (!reactionTimeArray) return;
   const diffed: ReactionTime[] = reactionTimeArray.map(reactionTime => {
     return {
