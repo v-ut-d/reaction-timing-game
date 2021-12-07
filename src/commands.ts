@@ -56,8 +56,7 @@ const commands = [
         .addStringOption(option =>
             option.setName("値")
                 .setDescription("設定項目を変更する場合は、設定する値を入力してください。")
-        )
-
+        ),
 ]
     .map(command => command.toJSON());
 

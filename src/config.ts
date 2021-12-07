@@ -1,7 +1,7 @@
 import { PrismaClient } from ".prisma/client";
 import EmojiRegex from "emoji-regex";
 
-
+import TZValidator from "./timezoneValidator";
 
 
 interface ConfigurationAttributes<T> {
@@ -17,6 +17,7 @@ export interface ConfigurationType {
     "countDownEmoji": string
     "kaishimaeEmoji": string
     "timeAdjustFactor": bigint
+    "TZ": string
 }
 
 type Configuration = {
@@ -55,6 +56,11 @@ const configuration: Configuration = {
         default: 334237733n,
         parser: (input: string) => BigInt(input),
         validator: TimeAdjustFactorValidator
+    },
+    "TZ": {
+        default: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        parser: RetVal,
+        validator: TZValidator
     }
 }
 
@@ -103,6 +109,7 @@ export function getIdFromEmojiString(emoji: string) {
 function TimeAdjustFactorValidator(value: string) {
     return /\d+n/.test(value);
 }
+
 
 function validate(key: string, value: string) {
     if (isInConfigurationTypesKey(key)) {

@@ -13,7 +13,21 @@ import { config as dotenvconfig } from 'dotenv';
 dotenvconfig();
 
 import * as datefns from "date-fns";
+import { utcToZonedTime } from "date-fns-tz";
 import ja from 'date-fns/locale/ja'
+
+function formatDateTZ(
+  date: Date | number,
+  format: string,
+  options?: {
+    locale?: Locale
+    weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6
+    firstWeekContainsDate?: number
+    useAdditionalWeekYearTokens?: boolean
+    useAdditionalDayOfYearTokens?: boolean
+  }) {
+  return datefns.format(utcToZonedTime(date, config.TZ), format, options);
+}
 
 import setupCommands from "./commands";
 
@@ -254,11 +268,11 @@ client.on('interactionCreate', async interaction => {
     });
     const nickname = getDisplayName(interaction.guild, user.id);
     interaction.editReply(
-      `${nickname} ${datefns.format(day, "y/M/d")}\n` +
+      `${nickname} ${formatDateTZ(day, "y/M/d")}\n` +
       res.map(record => {
         const timeStr = record.game.finishedAt
-          ? datefns.format(record.game.finishedAt, " HH:mm:ss ", { locale: ja })
-          : datefns.format(record.game.createdAt, "(HH:mm:ss)", { locale: ja });
+          ? formatDateTZ(record.game.finishedAt, " HH:mm:ss ", { locale: ja })
+          : formatDateTZ(record.game.createdAt, "(HH:mm:ss)", { locale: ja });
         return `${timeStr} ${record.point}`
       }).join("\n")
     );
@@ -320,8 +334,8 @@ client.on('interactionCreate', async interaction => {
     const nickname = user && getDisplayName(interaction.guild, user.id);
     let commandInfo = `Ranking `;
     if (nickname) commandInfo += nickname + " ";
-    if (day_start) commandInfo += datefns.format(day_start, "y/M/d", { locale: ja });
-    if (day_end) commandInfo += " to " + datefns.format(datefns.subSeconds(day_end, 1), "y/M/d", { locale: ja });
+    if (day_start) commandInfo += formatDateTZ(day_start, "y/M/d", { locale: ja });
+    if (day_end) commandInfo += " to " + formatDateTZ(datefns.subSeconds(day_end, 1), "y/M/d", { locale: ja });
     commandInfo += ":\n";
 
     const ResultArray = await Promise.all(
@@ -334,8 +348,8 @@ client.on('interactionCreate', async interaction => {
         if (!nn) nn = "";
 
         const timeStr = record.game.finishedAt
-          ? datefns.format(record.game.finishedAt, "yyyy/MM/dd HH:mm:ss ", { locale: ja })
-          : datefns.format(record.game.createdAt, "(yyyy/MM/dd HH:mm:ss)", { locale: ja });
+          ? formatDateTZ(record.game.finishedAt, "yyyy/MM/dd HH:mm:ss ", { locale: ja })
+          : formatDateTZ(record.game.createdAt, "(yyyy/MM/dd HH:mm:ss)", { locale: ja });
 
         return `${i + rank}位 ${nn} ${timeStr} ${record.point}`
       })
