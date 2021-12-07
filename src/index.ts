@@ -184,7 +184,7 @@ client.on('interactionCreate', async interaction => {
       const participantIds = participants.map(p => p.id).filter(id => id !== client.user?.id);
       const mentionString = getMentionString(participantIds);
 
-      const messageString = `5秒後にカウントダウンを開始します。0になった瞬間に${config.reactEmoji}でリアクションしてください。`;
+      const messageString = `5秒後にカウントダウンを開始します。0になった瞬間に${config.reactEmoji}でリアクションしてください。(開始前からリアクションをつけてありますが、開始前に押しても記録されません)`;
 
       let mentionMessage: Message | undefined;
       let gameMessage: Message | undefined;
@@ -426,7 +426,11 @@ async function game(dbgameid: number, gamemessage: Message) {
   });
 
   const gamemessage_sub_promise =
-    gamemessage.channel.send(config.kaishimaeEmoji.repeat(4));
+    gamemessage.channel.send(config.kaishimaeEmoji.repeat(4))
+      .then(msg => {
+        msg.react(config.reactEmoji);
+        return msg;
+      });
 
   await new Promise(resolve => setTimeout(resolve, 5000))
 
@@ -440,7 +444,6 @@ async function game(dbgameid: number, gamemessage: Message) {
       .then(() => {
         after = process.hrtime.bigint();
       }),
-    (await gamemessage_sub_promise).react(config.reactEmoji),
     (async () => {
       const gm_sub = await gamemessage_sub_promise;
       if (gm_sub.guildId && gm_sub.channelId) {
