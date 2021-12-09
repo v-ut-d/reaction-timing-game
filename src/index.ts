@@ -184,7 +184,7 @@ client.on('interactionCreate', async interaction => {
       const participantIds = participants.map(p => p.id).filter(id => id !== client.user?.id);
       const mentionString = getMentionString(participantIds);
 
-      const messageString = `5秒後にカウントダウンを開始します。0になった瞬間に${config.reactEmoji}でリアクションしてください。(開始前からリアクションをつけてありますが、開始前に押しても記録されません)`;
+      const messageString = `5秒後にカウントダウンを開始します。0になった瞬間に${config.reactEmoji}でリアクションしてください。注意:${config.kaishimaeEmoji}はスマホでは機能しません。`;
 
       let mentionMessage: Message | undefined;
       let gameMessage: Message | undefined;
@@ -426,14 +426,13 @@ async function game(dbgameid: number, gamemessage: Message) {
   });
 
   const gamemessage_sub_promise =
-    gamemessage.channel.send(config.kaishimaeEmoji.repeat(4))
-      .then(msg => {
-        msg.react(config.reactEmoji);
-        return msg;
-      });
+    gamemessage.channel.send(config.kaishimaeEmoji.repeat(4));
 
-  await new Promise(resolve => setTimeout(resolve, 5000))
 
+  await new Promise(resolve => setTimeout(resolve, 5000));
+
+  const reactMessage_promise =
+    gamemessage.channel.send(formatDateTZ(new Date(), "Pp", { locale: ja }));
 
   const before = process.hrtime.bigint();
 
@@ -444,11 +443,12 @@ async function game(dbgameid: number, gamemessage: Message) {
       .then(() => {
         after = process.hrtime.bigint();
       }),
+    reactMessage_promise.then(msg => msg.react(config.reactEmoji)),
     (async () => {
-      const gm_sub = await gamemessage_sub_promise;
-      if (gm_sub.guildId && gm_sub.channelId) {
-        setToDiscordMessageTree(reactionCache, gm_sub);
-        reactionCache[gm_sub.guildId][gm_sub.channelId][gm_sub.id] = [];
+      const reactMessage = await reactMessage_promise;
+      if (reactMessage.guildId && reactMessage.channelId) {
+        setToDiscordMessageTree(reactionCache, reactMessage);
+        reactionCache[reactMessage.guildId][reactMessage.channelId][reactMessage.id] = [];
       }
     })(),
     //これの正確性は結果に関係しない
@@ -463,11 +463,11 @@ async function game(dbgameid: number, gamemessage: Message) {
   //const zero = (before + after) / BigInt(2) + BigInt(5 * 1e9);
   const zero = after + BigInt(5 * 1e9) + config.timeAdjustFactor;
 
-  const gm_sub = await gamemessage_sub_promise;
 
-  const reactionTimeArray = getFromDiscordMessageTree(reactionCache, gm_sub)
+  await (await gamemessage_sub_promise).delete();
+  await (await reactMessage_promise).delete();
 
-  await gm_sub.delete();
+  const reactionTimeArray = getFromDiscordMessageTree(reactionCache, await reactMessage_promise);
 
   if (!reactionTimeArray) return;
   const diffed: ReactionTime[] = reactionTimeArray.map(reactionTime => {
