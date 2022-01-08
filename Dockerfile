@@ -15,6 +15,6 @@ ENV NODE_ENV production
 
 COPY --from=builder app/dist ./dist
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --ignore-script
 
 CMD ["npm", "start"]
