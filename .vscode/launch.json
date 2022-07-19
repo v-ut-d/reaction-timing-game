@@ -7,21 +7,21 @@
         {
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",
-            "name": "nodemon",
+            "name": "dev:watch",
             "program": "${workspaceFolder}\\src\\index.ts",
             "cwd": "${workspaceRoot}/",
             "request": "launch",
             "restart": true,
-            "runtimeExecutable": "npx",
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "type": "pwa-node",
+            "type": "node",
             "env": {
                 "NODE_ENV": "development"
             },
+            "runtimeExecutable": "npm",
             "runtimeArgs": [
-                "nodemon"
+                "run", "dev:watch"
             ]
         }
     ]

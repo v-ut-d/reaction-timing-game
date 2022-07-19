@@ -50,7 +50,7 @@ const commands = [
         .addStringOption(option =>
             option.setName("設定項目")
                 .setDescription("表示・変更する項目を選んでください")
-                .addChoices(configArray.map(c => [c, c]))
+                .addChoices(...configArray.map(c => ({ name: c, value: c })))
                 .setRequired(true)
         )
         .addStringOption(option =>

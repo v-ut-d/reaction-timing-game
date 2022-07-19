@@ -1,12 +1,29 @@
-import { Client, Intents, MessageActionRow, MessageButton, MessageComponentInteraction, Message, PartialMessage, PartialMessageReaction, PartialUser, TextBasedChannels, TextChannel, User, Guild, Interaction, CommandInteraction } from "discord.js";
+import {
+  Client,
+  MessageComponentInteraction,
+  Message,
+  PartialMessage,
+  PartialUser,
+  User,
+  Guild,
+  GatewayIntentBits,
+  Partials,
+  ActionRowBuilder,
+  ButtonStyle,
+  ComponentType,
+  ButtonBuilder
+} from "discord.js";
 
 const client = new Client({
   intents: [
-    Intents.FLAGS.GUILDS,
-    Intents.FLAGS.GUILD_MESSAGES,
-    Intents.FLAGS.GUILD_MESSAGE_REACTIONS
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMessageReactions
   ],
-  partials: ["MESSAGE", "REACTION"]
+  partials: [
+    Partials.Message,
+    Partials.Reaction
+  ]
 });
 
 import { config as dotenvconfig } from 'dotenv';
@@ -92,23 +109,23 @@ client.on("messageReactionAdd", (reaction, user) => {
 
 client.on('interactionCreate', async interaction => {
   const tokenExpiresAt = datefns.addMinutes(new Date(), 15);
-  if (!interaction.isCommand()) return;
+  if (!interaction.inCachedGuild() || !interaction.isChatInputCommand()) return;
   if (interaction.commandName === 'start') {
     if (!interaction.channel) return;
     const max_reaction = Math.min(interaction.options.getInteger("参加者数の上限") ?? 4, 4);
-    const row_pri = new MessageActionRow()
+    const row_pri = new ActionRowBuilder<ButtonBuilder>()
       .addComponents(
-        new MessageButton()
+        new ButtonBuilder()
           .setCustomId('start')
           .setLabel('いますぐはじめる')
-          .setStyle('SUCCESS'),
+          .setStyle(ButtonStyle.Success),
       )
       .addComponents(
-        new MessageButton()
+        new ButtonBuilder()
           .setCustomId('cancel')
           .setLabel('やめる')
-          .setStyle('DANGER'),
-      );
+          .setStyle(ButtonStyle.Danger),
+      )
 
     await interaction.reply({ content: "ゲーム操作:", components: [row_pri], ephemeral: false });
     const nickname = getDisplayName(interaction.guild, interaction.user.id);
@@ -140,7 +157,7 @@ client.on('interactionCreate', async interaction => {
     const reply = await interaction.fetchReply();
     const res = await Promise.race([
       interaction.channel?.awaitMessageComponent({
-        componentType: "BUTTON",
+        componentType: ComponentType.Button,
         time: timeout,
         filter: async function (i) {
           if (i.message.id !== reply.id) {
@@ -174,7 +191,7 @@ client.on('interactionCreate', async interaction => {
       joinEmojiId &&
       await message?.reactions.cache.get(joinEmojiId)?.users.fetch();
 
-    !message?.deleted && await message?.delete();
+    message?.deletable && await message?.delete();
 
     if (
       res &&
