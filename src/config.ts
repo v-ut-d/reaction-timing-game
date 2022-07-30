@@ -68,7 +68,7 @@ export const configArray = Object.keys(configuration);
 
 function EmojiValidator(value: string) {
     const emojiRegex = EmojiRegex();
-    return /^<a?:(\w|\d)+:\d{18}>$/.test(value) || emojiRegex.test(value);
+    return /^<a?:(\w|\d)+:\d{16,19}>$/.test(value) || emojiRegex.test(value);
 }
 function EmojiModifier(input: string) {
     const emojiRegex = EmojiRegex();
@@ -76,12 +76,12 @@ function EmojiModifier(input: string) {
     if (emojiMatched) {
         return emojiMatched[0];
     } else {
-        const match = input.match(/<a?:(\w|\d)+:(\d{18})>/);
+        const match = input.match(/<a?:(\w|\d)+:(\d{16,19})>/);
         if (match) {
             return match[0];
         } else {
             const animatedMatched = input.match(/< *a *:/);
-            const idMatched = input.match(/: *(\d{18})> */);
+            const idMatched = input.match(/: *(\d{16,19})> */);
             const nameMatched = input.match(/: *((\w|\d)+) *:/);
             if (idMatched && nameMatched) {
                 if (animatedMatched) {
@@ -101,7 +101,7 @@ export function getIdFromEmojiString(emoji: string) {
     if (emojiRegex.test(emoji)) {
         return emoji;
     } else {
-        const match = emoji.match(/<a?:(\w|\d)+:(\d{18})>/);
+        const match = emoji.match(/<a?:(\w|\d)+:(\d{16,19})>/);
         return match && match[2];
     }
 }

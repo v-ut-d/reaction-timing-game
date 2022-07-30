@@ -382,7 +382,7 @@ client.on('interactionCreate', async interaction => {
     if (value) {
       if (
         process.env.BOT_ADMIN_USER?.split(",")
-          .some(userid => userid.length === 18 && userid === interaction.user.id)) {
+          .some(userid => userid.length >= 16 && userid.length <= 19 && userid === interaction.user.id)) {
         await interaction.deferReply();
         const before = config[key as keyof constantsconfig.ConfigurationType];
         constantsconfig.setConfig(prisma, key, value)
