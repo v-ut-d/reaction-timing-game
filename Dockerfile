@@ -1,4 +1,4 @@
-FROM node AS builder
+FROM node:18-bullseye AS builder
 
 WORKDIR /app
 COPY package*.json ./
@@ -9,7 +9,7 @@ RUN npm run prisma-setup
 COPY . .
 RUN npm run build
 
-FROM node AS runner
+FROM node:18-bullseye-slim AS runner
 
 WORKDIR /app
 ENV NODE_ENV production
