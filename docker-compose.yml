@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  reaction-timing-game:
+    image: ghcr.io/v-ut-d/reaction-timing-game:latest
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+      - BOT_ADMIN_USER=${BOT_ADMIN_USER}
+      - DATABASE_URL=file:./data/database.sqlite
