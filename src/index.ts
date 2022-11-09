@@ -359,8 +359,8 @@ client.on('interactionCreate', async interaction => {
       res.map(async (record, i) => {
         let nn: string | undefined;
         if (!user) {
-          const u = await interaction.guild?.members.fetch(record.userId);
-          nn = u?.displayName;
+          const u = await interaction.guild?.members.fetch(record.userId).catch(() => undefined);
+          nn = u?.displayName ?? '[deleted]';
         }
         if (!nn) nn = "";
 
