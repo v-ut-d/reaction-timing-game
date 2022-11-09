@@ -8,4 +8,4 @@ services:
     environment:
       - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
       - BOT_ADMIN_USER=${BOT_ADMIN_USER}
-      - DATABASE_URL=file:./data/database.sqlite
+      - DATABASE_URL=file:/app/data/database.sqlite
